@@ -76,3 +76,8 @@ hc_final <- bind_cols(hc_code, hc_sex_dob) %>%
 
 shared_variables <- intersect(colnames(park_pams_final), colnames(hc_final))
 
+park_pams_hc_final <- select(park_final, shared_variables) %>%
+  bind_rows(select(pams_final, shared_variables), select(hc_final, shared_variables), .id = "group") %>%
+  mutate(group = ifelse(group == 1, "park", ifelse( group == 2, "pams", "hc"), "park"))
+
+
