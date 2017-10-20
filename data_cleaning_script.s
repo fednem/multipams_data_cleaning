@@ -1,6 +1,7 @@
 options(java.parameters = "- Xmx1024m")
 library(tidyverse)
 library(XLConnect)
+library(stringr)
 
 xlsx_file <- "PAMS_DATA_pourPP.xlsx"
 wb <- loadWorkbook(xlsx_file, create = FALSE, password = NULL)
@@ -42,13 +43,13 @@ pams_demographic_info <- pams_demographic_info %>%
 
 pams_first_visit <- pams_first_visit %>%
   mutate(code = pams_demographic_info$code) %>%
-  select(code, date_mri = Date.IRM, age = Age.au.moment.de.l.IRM, mmse = MMSE...30., usmars = Score.UMSARS.2...56.,
+  select(code, date_mri = Date.IRM, age = Age.au.moment.de.l.IRM, mmse = MMSE...30., umsars = Score.UMSARS.2...56.,
          beck = Score.inventaire.dépressionde.Beck...63., moca = Score.de.Moca...30., scopa = Score.de.scopa...69.) %>%
   mutate(scopa = as.numeric(scopa))
 
 pams_second_visit <- pams_second_visit %>%
   mutate(code = pams_demographic_info$code, age = NA, mmse = NA) %>%
-  select(code, date_mri = Date.IRM, age, mmse, usmars = Score.UMSARS.2, beck = Score.Beck, moca = Score.Moca,
+  select(code, date_mri = Date.IRM, age, mmse, umsars = Score.UMSARS.2, beck = Score.Beck, moca = Score.Moca,
          scopa = Score.SCOPA)
 
 pams_final <- bind_rows(left_join(pams_demographic_info, pams_first_visit, by = "code"), 
@@ -80,4 +81,16 @@ park_pams_hc_final <- select(park_final, shared_variables) %>%
   bind_rows(select(pams_final, shared_variables), select(hc_final, shared_variables), .id = "group") %>%
   mutate(group = ifelse(group == 1, "park", ifelse( group == 2, "pams", "hc"), "park"))
 
+final_dataset_xlsx_file <-'database definitivo_21_04_2015.xlsx'
+final_dataset_wb <- loadWorkbook(final_dataset_xlsx_file, create = FALSE, password = NULL)
+final_dataset <- as_data_frame(readWorksheet(final_dataset_wb, sheet = 1)) %>%
+  select(Col1, subgroup_tot, H_Y, age_at_onset, disease_duration = dis_dur, ledd = LEDD, 
+         levodopa_daily_dose, umsars_P = UMSARS_P, umsars_C = UMSARS_C) %>%
+  slice(1:55)
 
+final_code <- final_dataset$Col1 %>% 
+  str_split(pattern = "_") %>%
+  map(`[`,2:3) %>% 
+  map_chr(paste, collapse = "_")
+
+park_pams_final_plus_gateano_dataset <- bind_cols(data_frame(code = final_code), final_dataset) %>% left_join(park_pams_final, by = "code")
