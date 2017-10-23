@@ -171,3 +171,42 @@ effect_of_iron_on_residuals_rs <- as_data_frame(res_of_rs_fmri_over_nuisance_sel
 pdf("effect_of_iron_on_residuals_rs.pdf", w = 6, h = 4)
 print(effect_of_iron_on_residuals_rs)
 dev.off()
+
+# check model without healthy control
+value_iron_nuisance_by_rois_patients_only <- mat %>%
+  select(-Condition) %>%
+  gather(rois,value, -Subject, -QA_ValidScans, -QA_MeanMotion, -QA_MeanGlobal, -QA_GCOR_rest, -group, -iron) %>%
+  filter(group == "group_1" | group == "group_2") %>%
+  split(., .$rois) %>%
+  map(~lm(data = ., value ~ iron + QA_MeanMotion + QA_MeanGlobal + QA_GCOR_rest)) %>%
+  map(~summary(.))
+
+rs_iron_group_ironXgroup_by_rois_patients_only.anova <- mat %>%
+  select(-Condition) %>%
+  gather(rois,value, -Subject, -QA_ValidScans, -QA_MeanMotion, -QA_MeanGlobal, -QA_GCOR_rest, -group, -iron) %>%
+  filter(group == "group_1" | group == "group_2") %>%
+  split(., .$rois) %>%
+  map(~lm(data = ., value ~ iron + group + iron:group + QA_MeanMotion + QA_MeanGlobal + QA_GCOR_rest)) %>%
+  map(~Anova(mod = ., t = 3))
+
+
+#add levodopa and other clinical variable
+
+load("clinical_data_sets.RData")
+
+subjects_code_as_in_conn <- scan("MultiPAMS_subjects_code_as_in_conn.txt", "%s%")
+subjects_code_as_in_conn <- subjects_code_as_in_conn [-24]
+mat$code <- subjects_code_as_in_conn
+
+correlation_ledd_iron <- left_join(mat, park_pams_final_plus_gateano_dataset, by = "code") %>%
+  lm(data = ., ledd ~ iron) %>%
+  summary(.)
+
+correlation_disease_duration_iron <- left_join(mat, park_pams_final_plus_gateano_dataset, by = "code") %>%
+  lm(data = ., iron ~ disease_duration) %>%
+  summary(.)
+
+correlation_scopa_iron <- left_join(mat, park_pams_final_plus_gateano_dataset, by = "code") %>%
+  lm(data = ., scopa ~iron) %>%
+  summary(.)
+
