@@ -71,15 +71,19 @@ hc_visit <- as_data_frame(readWorksheet(hc_wb, sheet = 1, startRow = 2, startCol
 
 hc_final <- bind_cols(hc_code, hc_sex_dob) %>%
   bind_cols(hc_visit) %>%
-  mutate(visit = 1, group = "hc") %>%
-  select(group, visit, code = N..inclusion, sex = sexe, date_of_birth = date.de..naissance, date_mri = Date.de.l.IRM,
-         age = Age.au.moment.de.l.IRM, mmse = MMSE...30., beck = Dépression.de..Beck...63., scopa = SCOPA)
+  mutate(visit = as.character(1)) %>%
+  select(visit, code = N..inclusion, sex = sexe, date_of_birth = date.de..naissance, date_mri = Date.de.l.IRM,
+         age = Age.au.moment.de.l.IRM, mmse = MMSE...30., beck = Dépression.de..Beck...63., scopa = SCOPA) %>%
+  mutate(beck = as.numeric())
 
-shared_variables <- intersect(colnames(park_pams_final), colnames(hc_final))
+shared_variables <- intersect(colnames(park_final), colnames(pams_final)) %>%
+  intersect(colnames(hc_final)) 
+  
 
-park_pams_hc_final <- select(park_final, shared_variables) %>%
-  bind_rows(select(pams_final, shared_variables), select(hc_final, shared_variables), .id = "group") %>%
-  mutate(group = ifelse(group == 1, "park", ifelse( group == 2, "pams", "hc"), "park"))
+park_pams_hc_final <- bind_rows(select(park_final, shared_variables), 
+                                select(pams_final, shared_variables), 
+                                select(hc_final, shared_variables), .id = "group") %>%
+  mutate(group = ifelse(group == 1, "park", ifelse(group == 2, "pams", "hc")))
 
 final_dataset_xlsx_file <-'database definitivo_21_04_2015.xlsx'
 final_dataset_wb <- loadWorkbook(final_dataset_xlsx_file, create = FALSE, password = NULL)
@@ -94,3 +98,5 @@ final_code <- final_dataset$Col1 %>%
   map_chr(paste, collapse = "_")
 
 park_pams_final_plus_gateano_dataset <- bind_cols(data_frame(code = final_code), final_dataset) %>% left_join(park_pams_final, by = "code")
+
+save(file = "clinical_data_sets.RData", park_pams_final, park_pams_hc_final, park_pams_final_plus_gateano_dataset)

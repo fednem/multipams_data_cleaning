@@ -134,3 +134,40 @@ rs_iron_group_ironXgroup_by_rois.anova <- mat %>%
   split(., .$rois) %>%
   map(~lm(data = ., value ~ iron + group + iron:group + QA_MeanMotion + QA_MeanGlobal + QA_GCOR_rest)) %>%
   map(~Anova(mod = ., t = 3))
+
+#control by group but don t include interaction
+value_iron_nuisance_group_by_rois <- mat %>%
+  select(-Condition) %>%
+  gather(rois,value, -Subject, -QA_ValidScans, -QA_MeanMotion, -QA_MeanGlobal, -QA_GCOR_rest, -group, -iron) %>%
+  split(., .$rois) %>%
+  map(~lm(data = ., value ~ iron + QA_MeanMotion + QA_MeanGlobal + QA_GCOR_rest + group)) %>%
+  map(~Anova(mod = ., t = 3))
+  
+#plot effect for 22 -54 -14 and 22 -54 -14
+res_of_rs_fmri_over_nuisance_selcted_rois <- mat %>%
+  select(-Condition) %>%
+  gather(rois,value, -Subject, -QA_ValidScans, -QA_MeanMotion, -QA_MeanGlobal, -QA_GCOR_rest, -group, -iron) %>%
+  split(., .$rois) %>%
+  `[`(., names(value_iron_nuisance_by_rois) %in% c("main_effect_group.-22 -62 +2 _To_sn_bilateral_Pat",
+                                                  "main_effect_group.+22 -54 -14 _To_sn_bilateral_Pat")) %>%
+  map(~lm(data = ., value ~ QA_MeanMotion + QA_MeanGlobal + QA_GCOR_rest)) %>%
+  map(~residuals(.))
+
+effect_of_iron_on_residuals_rs <- as_data_frame(res_of_rs_fmri_over_nuisance_selcted_rois) %>% 
+  bind_cols(data_frame(iron = as.numeric(mat$iron), group = mat$group)) %>%
+  gather(., rois, value, -iron, -group) %>%
+  split(., .$rois) %>%
+  map(~ggplot(data = ., aes(x = iron, y = value, color = group)) + 
+        geom_point(size = 2, alpha = .7) + 
+        stat_smooth(aes(group = 1), method = "lm", alpha = .2) + 
+        ggtitle("Effect of Iron on rs connectivity") +
+        xlab("Iron") + 
+        ylab("rs-connectvity with SN\nresiduals over QA variables") + 
+        theme_bw() +
+        theme(plot.title = element_text(hjust = 0.5)))
+        
+        
+
+pdf("effect_of_iron_on_residuals_rs.pdf", w = 6, h = 4)
+print(effect_of_iron_on_residuals_rs)
+dev.off()
