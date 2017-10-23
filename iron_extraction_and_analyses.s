@@ -1,16 +1,7 @@
-library(fslr)
 library(tidyverse)
 library(car)
-#note that the first part of this script must be run in ubuntu
-#create 3d images of r2star and extract the value
-home_dir <- getwd()
-setwd("../Image/")
-system('fslmerge -t 4d_normalized_r2s w*r2*')
-system('fslmerge -t 4d_normalized_t2s w*T2*')
-iron_data <- system('fslstats -t 4d_normalized_r2s.nii.gz -M', intern = TRUE)
-setwd(home_dir)
-save(file = "iron_data.RData", iron_data)
-#from here the script can be run in windows
+library(lsmeans)
+
 load('iron_data.RData')
 #read functional data
 
@@ -25,7 +16,8 @@ second_level_covariates <- second_level_covariates %>%
   select(-5, -6, -7)
 mat <- bind_cols(mat, second_level_covariates) %>%
   filter(Subject != 24)
-group <- mat$group [-24]
+
+group = mat$group
 
 iron_data <- iron_data [-24]
 
@@ -74,3 +66,71 @@ rs_iron_group_ironXgroup_by_rois.anova <- mat %>%
   map(~Anova(mod = ., t = 3))
 
 
+#iron extraction and anlysis from single subject space
+load("iron_data_from_single_subject_space.RData")
+iron_data_single_subject_space <- iron_data [-24,]
+
+hist(iron_data_single_subject_space$iron)
+boxplot(iron_data_single_subject_space$iron)
+
+group_effect_on_iron <- bind_cols(iron_data_single_subject_space, data_frame(group = group)) %>%
+  oneway.test(data = ., iron ~ group)
+
+#there's a significant effect of group
+
+#try again without outlier
+group_effect_on_iron_no_outlier <- bind_cols(iron_data_single_subject_space, data_frame(group = group)) %>%
+  filter(iron < 33) %>%
+  oneway.test(data = ., iron ~ group)
+
+#without outlier is barely significant (p = .05077)
+
+#plot effect
+
+barplot_effect_of_group <- bind_cols(iron_data_single_subject_space, data_frame(group = group)) %>%
+  group_by(group) %>%
+  summarise(avg = mean(iron), lower_ci = t.test(iron)$conf.int[1], upper_ci = t.test(iron)$conf.int[2]) %>%
+  ggplot(data = ., aes(x = group, y = avg, fill = group)) + 
+    geom_bar(stat = "identity") + 
+    geom_errorbar(aes(ymin = lower_ci, ymax = upper_ci), width = .2) + 
+    ggtitle("Main Effect of Group\non Iron") + 
+    ylab("Group") +
+    theme_bw() +
+    theme(plot.title = element_text(hjust = 0.5))
+
+pdf("main_effect_of_group_on_iron_single_subject_space.pdf", w = 5, h = 3)
+barplot_effect_of_group
+dev.off()
+
+#post-hoc - note that this change from trend with tukey (.09) to marginally significant with fdr (.0566)
+group_effect_on_iron_post_hoc <- bind_cols(iron_data_single_subject_space, data_frame(group = group)) %>%
+  lm(data = ., iron ~ group) %>%
+  lsmeans(., pairwise~group, adjust = "fdr")
+
+#check effect of iron from single subject space on rs_fmri
+mat$iron <- as.numeric(iron_data_single_subject_space$iron)
+
+value_iron_nuisance_by_rois <- mat %>%
+  select(-Condition) %>%
+  gather(rois,value, -Subject, -QA_ValidScans, -QA_MeanMotion, -QA_MeanGlobal, -QA_GCOR_rest, -group, -iron) %>%
+  split(., .$rois) %>%
+  map(~lm(data = ., value ~ iron + QA_MeanMotion + QA_MeanGlobal + QA_GCOR_rest)) %>%
+  map(~summary(.))
+
+value_iron_nuisance_by_rois_coefficients <- mat %>%
+  select(-Condition) %>%
+  gather(rois,value, -Subject, -QA_ValidScans, -QA_MeanMotion, -QA_MeanGlobal, -QA_GCOR_rest, -group, -iron) %>%
+  split(., .$rois) %>%
+  map(~lm(data = ., value ~ iron + QA_MeanMotion + QA_MeanGlobal + QA_GCOR_rest)) %>%
+  map(~summary(.)) %>%
+  map(~`[[`(.,"coefficients")) %>%
+  map_dbl(~`[`(.,17))
+
+value_iron_nuisance_by_rois_coefficients_fdr <- p.adjust(value_iron_nuisance_by_rois_coefficients, "fdr")
+
+rs_iron_group_ironXgroup_by_rois.anova <- mat %>%
+  select(-Condition) %>%
+  gather(rois,value, -Subject, -QA_ValidScans, -QA_MeanMotion, -QA_MeanGlobal, -QA_GCOR_rest, -group, -iron) %>%
+  split(., .$rois) %>%
+  map(~lm(data = ., value ~ iron + group + iron:group + QA_MeanMotion + QA_MeanGlobal + QA_GCOR_rest)) %>%
+  map(~Anova(mod = ., t = 3))
