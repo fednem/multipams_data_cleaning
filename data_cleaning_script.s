@@ -92,7 +92,7 @@ final_dataset_xlsx_file <-'database definitivo_21_04_2015.xlsx'
 final_dataset_wb <- loadWorkbook(final_dataset_xlsx_file, create = FALSE, password = NULL)
 final_dataset <- as_data_frame(readWorksheet(final_dataset_wb, sheet = 1)) %>%
   select(Col1, subgroup_tot, H_Y, age_at_onset, disease_duration = dis_dur, ledd = LEDD, 
-         levodopa_daily_dose, umsars_P = UMSARS_P, umsars_C = UMSARS_C) %>%
+         levodopa_daily_dose, umsars_P = UMSARS_P, umsars_C = UMSARS_C, SN_r2s) %>%
   slice(1:55)
 
 final_code <- final_dataset$Col1 %>% 
