@@ -187,6 +187,37 @@ rs_iron_group_ironXgroup_by_rois_patients_only.anova <- mat %>%
   map(~Anova(mod = ., t = 3))
 
 
+#plot effect for 22 -54 -14 and 22 -54 -14 with patients only
+res_of_rs_fmri_over_nuisance_selcted_rois_patients_only <- mat %>%
+  select(-Condition) %>%
+  gather(rois,value, -Subject, -QA_ValidScans, -QA_MeanMotion, -QA_MeanGlobal, -QA_GCOR_rest, -group, -iron) %>%
+  filter(group == "group_1" | group == "group_2") %>%
+  split(., .$rois) %>%
+  `[`(., names(value_iron_nuisance_by_rois) %in% c("main_effect_group.-22 -62 +2 _To_sn_bilateral_Pat",
+                                                   "main_effect_group.+22 -54 -14 _To_sn_bilateral_Pat")) %>%
+  map(~lm(data = ., value ~ QA_MeanMotion + QA_MeanGlobal + QA_GCOR_rest)) %>%
+  map(~residuals(.))
+
+effect_of_iron_on_residuals_rs_patients_only <- as_data_frame(res_of_rs_fmri_over_nuisance_selcted_rois_patients_only) %>% 
+  bind_cols(filter(data_frame(iron = as.numeric(mat$iron), group = mat$group),
+                   group == "group_1" | group == "group_2")) %>%
+  gather(., rois, value, -iron, -group) %>%
+  split(., .$rois) %>%
+  map(~ggplot(data = ., aes(x = iron, y = value, color = group)) + 
+        geom_point(size = 2, alpha = .7) + 
+        stat_smooth(aes(group = 1), method = "lm", alpha = .2) + 
+        ggtitle("Effect of Iron on rs connectivity") +
+        xlab("Iron") + 
+        ylab("rs-connectvity with SN\nresiduals over QA variables") + 
+        theme_bw() +
+        theme(plot.title = element_text(hjust = 0.5)))
+
+
+pdf("effect_of_iron_on_residuals_rs_patients_only.pdf", w = 6, h = 4)
+print(effect_of_iron_on_residuals_rs_patients_only)
+dev.off()
+
+
 #add levodopa and other clinical variable
 
 load("clinical_data_sets.RData")
@@ -196,14 +227,26 @@ subjects_code_as_in_conn <- subjects_code_as_in_conn [-24]
 mat$code <- subjects_code_as_in_conn
 
 correlation_ledd_iron <- left_join(mat, park_pams_final_plus_gateano_dataset, by = "code") %>%
+  filter(visit == 1) %>%
   lm(data = ., ledd ~ iron) %>%
   summary(.)
 
 correlation_disease_duration_iron <- left_join(mat, park_pams_final_plus_gateano_dataset, by = "code") %>%
+  filter(visit == 1) %>%
   lm(data = ., iron ~ disease_duration) %>%
   summary(.)
 
 correlation_scopa_iron <- left_join(mat, park_pams_final_plus_gateano_dataset, by = "code") %>%
+  filter(visit == 1) %>%
   lm(data = ., scopa ~iron) %>%
   summary(.)
 
+correlation_umsarsP_iron <- left_join(mat, park_pams_final_plus_gateano_dataset, by = "code") %>%
+  filter(visit == 1) %>%
+  lm(data = ., umsars_P ~iron) %>%
+  summary(.)
+
+correlation_umsarsC_iron <- left_join(mat, park_pams_final_plus_gateano_dataset, by = "code") %>%
+  filter(visit == 1) %>%
+  lm(data = ., umsars_C ~iron) %>%
+  summary(.)
