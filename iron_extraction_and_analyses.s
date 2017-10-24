@@ -2,14 +2,11 @@ library(tidyverse)
 library(car)
 library(lsmeans)
 
+#load relevant data
 load('iron_data.RData')
-#read functional data
+load("rs_fmri_extraction_data.RData")
+#load relevant data
 
-source("D:/r_script/ExtractROIsValues.r")
-directory <- "D:/MultiPAMS/rs-fmri/MultiPAMS_11102017_classic_preprocessing/results/firstlevel/ANALYSIS_01/"
-CouplesToExtract <- "ROIsCouple.txt"
-mat <- ExtractROIsValues(directory, CouplesToExtract)
-mat <- as_data_frame(mat)
 second_level_covariates <- read_delim("D:/MultiPAMS/rs-fmri/selected_2nd_covariates.txt", delim = " ")
 second_level_covariates <- second_level_covariates %>%
   mutate(group = if_else(group_1 == 0, if_else(group_2 == 0, "group_3", "group_2"), "group_1")) %>%
